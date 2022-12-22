@@ -1,6 +1,6 @@
 # tap-lichess
 
-`tap-lichess` is a Singer tap for lichess.
+`tap-lichess` is a Singer tap for [lichess.org](https://lichess.org/).
 
 Built with the [Meltano Tap SDK](https://sdk.meltano.com) for Singer Taps.
 

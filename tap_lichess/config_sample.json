@@ -1,0 +1,6 @@
+{
+    "is_streaming_archived_pgn": true,
+    "auth_token": "PAT",
+    "start_date": "2022-12-01",
+    "api_url": "https://explorer.lichess.ovh"
+}

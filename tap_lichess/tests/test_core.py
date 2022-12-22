@@ -8,9 +8,8 @@ from tap_lichess.tap import Taplichess
 
 SAMPLE_CONFIG = {
     "start_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
-    "url": "https://lichess.org",
+    "url": "https://explorer.lichess.ovh",
     "project_ids": ["database_lichess"]
-    # TODO: Initialize minimal tap config
 }
 
 
@@ -25,4 +24,4 @@ def test_standard_tap_tests():
         test()
 
 
-# TODO: Create additional tests as appropriate for your tap.
+# TODO: Create additional tests as appropriate.
