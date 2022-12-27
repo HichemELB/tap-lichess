@@ -40,7 +40,7 @@ python-versions = ">=3.7,<4.0"
 
 [[package]]
 name = "black"
-version = "21.12b0"
+version = "22.12.0"
 description = "The uncompromising code formatter."
 category = "dev"
 optional = false
@@ -67,14 +67,14 @@ uvloop = ["uvloop (>=0.15.2)"]
 
 [[package]]
 name = "boto3"
-version = "1.26.35"
+version = "1.26.37"
 description = "The AWS SDK for Python"
 category = "main"
 optional = true
 python-versions = ">= 3.7"
 
 [package.dependencies]
-botocore = ">=1.29.35,<1.30.0"
+botocore = ">=1.29.37,<1.30.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.6.0,<0.7.0"
 
@@ -83,7 +83,7 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.29.35"
+version = "1.29.37"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = true
@@ -126,6 +126,14 @@ python-versions = ">=3.6.0"
 
 [package.extras]
 unicode_backport = ["unicodedata2"]
+
+[[package]]
+name = "chess"
+version = "1.9.4"
+description = "A chess library with move generation and validation, Polyglot opening book probing, PGN reading and writing, Gaviota tablebase probing, Syzygy tablebase probing, and XBoard/UCI engine communication."
+category = "main"
+optional = false
+python-versions = ">=3.7"
 
 [[package]]
 name = "click"
@@ -571,6 +579,17 @@ toml = "*"
 testing = ["argcomplete", "hypothesis (>=3.56)", "mock", "nose", "requests", "xmlschema"]
 
 [[package]]
+name = "python-chess"
+version = "1.999"
+description = "A chess library with move generation, move validation, and support for common formats."
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+chess = ">=1,<2"
+
+[[package]]
 name = "python-dateutil"
 version = "2.8.2"
 description = "Extensions to the standard Python datetime module"
@@ -788,7 +807,7 @@ python-versions = "*"
 
 [[package]]
 name = "types-requests"
-version = "2.28.11.6"
+version = "2.28.11.7"
 description = "Typing stubs for requests"
 category = "dev"
 optional = false
@@ -845,6 +864,14 @@ docs = ["proselint (>=0.13)", "sphinx (>=5.3)", "sphinx-argparse (>=0.3.2)", "sp
 testing = ["coverage (>=6.2)", "coverage-enable-subprocess (>=1)", "flaky (>=3.7)", "packaging (>=21.3)", "pytest (>=7.0.1)", "pytest-env (>=0.6.2)", "pytest-freezegun (>=0.4.2)", "pytest-mock (>=3.6.1)", "pytest-randomly (>=3.10.3)", "pytest-timeout (>=2.1)"]
 
 [[package]]
+name = "wget"
+version = "3.2"
+description = "pure python download utility"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "zipp"
 version = "3.11.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
@@ -856,13 +883,27 @@ python-versions = ">=3.7"
 docs = ["sphinx (>=3.5)", "jaraco.packaging (>=9)", "rst.linker (>=1.9)", "furo", "jaraco.tidelift (>=1.4)"]
 testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "flake8 (<5)", "pytest-cov", "pytest-enabler (>=1.3)", "jaraco.itertools", "func-timeout", "jaraco.functools", "more-itertools", "pytest-black (>=0.3.7)", "pytest-mypy (>=0.9.1)", "pytest-flake8"]
 
+[[package]]
+name = "zstandard"
+version = "0.19.0"
+description = "Zstandard bindings for Python"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+cffi = {version = ">=1.11", markers = "platform_python_implementation == \"PyPy\""}
+
+[package.extras]
+cffi = ["cffi (>=1.11)"]
+
 [extras]
 s3 = ["fs-s3fs"]
 
 [metadata]
 lock-version = "1.1"
 python-versions = "<3.11,>=3.7.1"
-content-hash = "2c106e52fc47b6d8fe9316b3e2e0eb76967bd18f51c9a4cdc3f6a84f062d43a5"
+content-hash = "5ca1641e26d68325293fadb8ce844951d42411aa02be49f9bcf7e266a2558771"
 
 [metadata.files]
 appdirs = []
@@ -875,6 +916,7 @@ botocore = []
 certifi = []
 cffi = []
 charset-normalizer = []
+chess = []
 click = []
 colorama = []
 cryptography = []
@@ -914,6 +956,7 @@ pyflakes = []
 pyjwt = []
 pyrsistent = []
 pytest = []
+python-chess = []
 python-dateutil = []
 python-dotenv = []
 pytz = []
@@ -935,4 +978,6 @@ types-urllib3 = []
 typing-extensions = []
 urllib3 = []
 virtualenv = []
+wget = []
 zipp = []
+zstandard = []
