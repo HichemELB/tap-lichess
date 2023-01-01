@@ -5,7 +5,7 @@ from singer_sdk.testing import get_standard_tap_tests
 from tap_lichess.tap import Taplichess
 
 SAMPLE_CONFIG = {
-    "start_date": "2013-01-01",
+    "start_date": "2013.01.01",
     "api_url": "https://database.lichess.org",
     "is_streaming_archived_pgn": True,
     "variant": "standard",

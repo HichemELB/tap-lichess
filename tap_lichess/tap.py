@@ -7,9 +7,7 @@ from singer_sdk import typing as th  # JSON schema typing helpers
 
 from tap_lichess.streams import GameHeaderStream
 
-STREAM_TYPES = [
-    GameHeaderStream,
-]
+STREAM_TYPES = [GameHeaderStream]
 
 
 class Taplichess(Tap):

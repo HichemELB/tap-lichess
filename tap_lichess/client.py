@@ -1,75 +1,154 @@
 """REST / HTML client handling, including lichessStream base class."""
 
 import io
-from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, Optional
+import os
+import json
+import gzip
+import itertools
+import logging
+from uuid import uuid4
+from datetime import datetime
+from typing import (
+    Any,
+    Generator,
+    Iterable,
+    Iterator,
+    Mapping,
+    TypeVar,
+    Optional,
+    Tuple,
+    List,
+    Dict,
+)
 
 import chess.pgn
 import wget
 import zstandard
+
+from singer_sdk.helpers._batch import (
+    BaseBatchFileEncoding,
+    BatchConfig,
+)
 from singer_sdk.streams import Stream
+
+logger = logging.getLogger(__name__)
+
+FactoryType = TypeVar("FactoryType", bound="Stream")
+_T = TypeVar("_T")
+
+
+BATCH_SIZE = 100000 # TODO: make it a config
+
+
+def lazy_chunked_generator(
+    iterable: Iterable[_T],
+    chunk_size: int,
+) -> Generator[Iterator[_T], None, None]:
+    """Yield a generator for each chunk of the given iterable.
+
+    Args:
+        iterable: The iterable to chunk.
+        chunk_size: The size of each chunk.
+
+    Yields:
+        A generator for each chunk of the given iterable.
+    """
+    iterator = iter(iterable)
+    while True:
+        chunk = list(itertools.islice(iterator, chunk_size))
+        if not chunk:
+            break
+        yield iter(chunk)
 
 
 class LichessStream(Stream):
     """lichess stream class.
 
-    Streaming data from API endpoints "https://lichess.org/api"
-    Streaming archived games from https://database.lichess.org
+    Extracting archived games from https://database.lichess.org
     """
 
-    # OR use a dynamic url_base:
-    # @property
-    # def url_base(self) -> str:
-    #     """Return the API URL root, configurable via tap settings."""
-    #     return self.config["api_url"]
-
-    # records_jsonpath = "$[*]"  # Or override `parse_response`.
-    # next_page_token_jsonpath = "$.next_page"  # Or override `get_next_page_token`.
-
-    @property
-    def http_headers(self) -> dict:
-        """Return the http headers needed."""
-        headers = {}
-        if "user_agent" in self.config:
-            headers["User-Agent"] = self.config.get("user_agent")
-        # If not using an authenticator, you may also provide inline auth headers:
-        headers["Private-Token"] = self.config.get("auth_token")
-        return headers
-
-    # def get_next_page_token(
-    #     self, response: requests.Response, previous_token: Optional[Any]
-    # ) -> Optional[Any]:
-    #     """
-    #     Return a token for identifying next page or None if no more pages.
-    #     """
-    #     # TODO: If pagination is required, return a token which can be used to get the
-    #     #       next page. If this is the final page, return "None" to end the
-    #     #       pagination loop.
-    #     if self.next_page_token_jsonpath:
-    #         all_matches = extract_jsonpath(
-    #             self.next_page_token_jsonpath, response.json()
-    #         )
-    #         first_match = next(iter(all_matches), None)
-    #         next_page_token = first_match
-    #     else:
-    #         next_page_token = response.headers.get("X-Next-Page", None)
-    #
-    #     return next_page_token
-
     def get_records(self, context: Optional[dict]) -> Iterable[dict]:
-        """Return a generator of row-type dictionary objects."""
+        """Return a generator of row-type dictionary objects.
+
+        The optional `context` argument is used to identify a specific slice of the
+        stream if partitioning is required for the stream. Most implementations do not
+        require partitioning and should ignore the `context` argument.
+        """
+
+        logger.info("Downloading file ...")
         file_path = self.get_archive_pgn(self.config["api_url"])
+
         with open(file_path, "rb") as fh:
             dctx = zstandard.ZstdDecompressor()
-            stream_reader = dctx.stream_reader(fh, read_size=10485760)  # 10MB
+            stream_reader = dctx.stream_reader(fh, read_size=8192)
             text_stream = io.TextIOWrapper(stream_reader, encoding="utf-8")
             while True:
-                header = chess.pgn.read_headers(text_stream)
-                # TODO: parse game
-                # game = chess.pgn.read_game(text_stream)
-                if header is None:
+                # parse game header
+                game_header = chess.pgn.read_headers(text_stream)
+
+                # game = chess.pgn.read_game(text_stream) # TODO: parse game
+
+                if not game_header:
                     break
-                yield dict(header)
+                yield dict(game_header)
+
+    def get_batch_config(self, config: Mapping) -> BatchConfig:
+        """Return the batch config for this stream.
+
+        Args:
+            config: Tap configuration dictionary.
+
+        Returns:
+            Batch config for this stream.
+        """
+        raw = self.config.get("batch_config")
+        return BatchConfig.from_dict(raw) if raw else None
+
+    def get_batches(
+        self, batch_config: BatchConfig, context: Optional[dict] = None
+    ) -> Iterable[Tuple[BaseBatchFileEncoding, List[str]]]:
+        """Return a generator of batch-type dictionary objects encoded in ND-JSON.
+
+        The optional `context` argument is used to identify a specific slice of the
+        stream if partitioning is required for the stream. Most implementations do not
+        require partitioning and should ignore the `context` argument.
+
+        Yields:
+            A tuple of (encoding, manifest) for each batch.
+        """
+        # TODO: cleanup batches from previous operation(s)
+
+        param = None
+        if self.config["start_date"]:
+            dt = datetime.strptime(self.config["start_date"], "%Y.%m.%d")
+            param = dt.strftime("%Y%m%d")
+
+        sync_id = f"{self.tap_name}--{self.name}-{uuid4()}-{param}"
+        prefix = batch_config.storage.prefix or ""
+
+        try:
+            for i, chunk in enumerate(
+                lazy_chunked_generator(
+                    self._sync_records(context, write_messages=False),
+                    BATCH_SIZE,
+                ),
+                start=1,
+            ):
+                filename = f"{prefix}{sync_id}__{i}.json.gz"
+                with batch_config.storage.fs() as fs:
+                    with fs.open(filename, "wb") as f:
+                        with gzip.GzipFile(fileobj=f, mode="wb") as gz:
+                            gz.writelines(
+                                (json.dumps(record) + "\n").encode() for record in chunk
+                            )
+
+                    file_url = fs.geturl(filename)
+
+                yield batch_config.encoding, [file_url]
+        except Exception as ex:
+            logger.error(ex)
+            raise
+        # finally: # TODO: clean up data/
 
     def get_url_params(self) -> Dict[str, Any]:
         """Return a dictionary of values to be used in URL parameterization."""
@@ -78,34 +157,20 @@ class LichessStream(Stream):
             if self.config["variant"]:
                 params["variant"] = self.config["variant"]
             if self.config["start_date"]:
-                dt = datetime.strptime(
-                    self.config["start_date"], "%Y-%m-%d"
-                ) + timedelta(days=7)
+                dt = datetime.strptime(self.config["start_date"], "%Y.%m.%d")
                 params["date"] = dt.strftime("%Y-%m")
-        # else:
-        #     if next_page_token:
-        #         params["page"] = next_page_token
-        #     if self.replication_key:
-        #         params["sort"] = "asc"
-        #         params["order_by"] = self.replication_key
         return params
 
     def get_archive_pgn(self, endpoint: str) -> str:
         """WGET remote file and return local file name."""
         url_param = self.get_url_params()
+        abs_local_path = os.path.abspath(
+            f"data/lichess_db_{url_param['variant']}_rated_{url_param['date']}.pgn.zst"
+        )
         url = f"{endpoint}/{url_param['variant']}/lichess_db_{url_param['variant']}_rated_{url_param['date']}.pgn.zst"
-        return wget.download(url, "data/")
-        # TODO: clean up data/
 
-    # def parse_api_streaming_response(self, response: requests.Response) -> Iterable[dict]:
-    #     """
-    #     Parse the response and return an iterator of result records when streaming from API.
-    #     """
-    #     # TODO: Parse response body and return a set of records when streaming from API.
-    #     yield from extract_jsonpath(self.records_jsonpath, input=response.json())
-
-    # def post_api_streaming_response(self, row: dict, context: Optional[dict]) -> dict:
-    #     """
-    #     As needed, append or transform raw data to match expected structure.
-    #     """
-    #     return row
+        return (
+            abs_local_path
+            if os.path.exists(abs_local_path)
+            else wget.download(url, "data/archive/")
+        )

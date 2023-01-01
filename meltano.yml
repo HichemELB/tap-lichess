@@ -1,13 +1,13 @@
 version: 1
 send_anonymous_usage_stats: false
-project_id: "tap-lichess"
-default_environment: test
+project_id: tap-lichess
+default_environment: prod
 environments:
-- name: test
+- name: prod
 plugins:
   extractors:
-  - name: "tap-lichess"
-    namespace: "tap_lichess"
+  - name: tap-lichess
+    namespace: tap_lichess
     pip_url: -e .
     capabilities:
     - state
@@ -16,15 +16,30 @@ plugins:
     - about
     - stream-maps
     config:
-      start_date: '2010-01-01T00:00:00Z'
-    settings:
-    # TODO: To configure using Meltano, declare settings and their types here:
-    - name: username
-    - name: password
-      kind: password
-    - name: start_date
-      value: '2010-01-01T00:00:00Z'
+      api_url: https://database.lichess.org
+      start_date: 2022.01.01
+      is_streaming_archived_pgn: true
+      variant: standard
+      batch_config:
+        encoding:
+          format: jsonl
+          compression: gzip
+        storage:
+          root: file://~/projects/tap-lichess/data/batches
+          prefix: pgn-batch-
   loaders:
-  - name: target-jsonl
-    variant: andyh1203
-    pip_url: target-jsonl
+  - name: target-bq
+    namespace: target-bq
+    pip_url: git+https://github.com/HichemELB/target-bq.git
+    executable: target-bq
+    config:
+      add_metadata_columns: true
+      credentials_path: .secrets/lichess-372317-0b6ba10616df.json
+      dataset_id: lichess_org
+      location: EU
+      project_id: lichess-372317
+      table_prefix: meltano__lichess__
+      table_suffix: _test_202201
+      validate_records: false
+      schemaless: true
+      infer_schema: false

@@ -17,16 +17,16 @@ class GameHeaderStream(LichessStream):
         ),
         th.Property("Site", th.StringType, description="The game's system ID"),
         th.Property(
-            "Date", th.IntegerType, description="Date when the game was played"
+            "Date", th.StringType, description="Date when the game was played"
         ),
         th.Property(
             "Round",
-            th.IntegerType,
+            th.StringType,
             description="If the game is part of a tournament, "
             "it is the number of the game in that tournament"
             "(e.g. game 3 out of 7)",
         ),
-        th.Property("White", th.IntegerType, description="The white player ID"),
+        th.Property("White", th.StringType, description="The white player ID"),
         th.Property("Black", th.StringType, description="The black player ID"),
         th.Property("Result", th.StringType, description="The game result"),
         th.Property(
